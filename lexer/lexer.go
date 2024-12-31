@@ -75,7 +75,11 @@ func CreateLexer(source string) *lexer {
 		pos:    0,
 		tokens: make([]Token, 0),
 		pattrens: []regexPattern{
+			{regexp.MustCompile(`[a-zA-Z_][a-zA-Z_0-9]*`), symbolHandler},
 			{regexp.MustCompile(`[0-9]+(\.[0-9]+)?`), numberHandler},
+			{regexp.MustCompile(`\s+`), skipHandler},
+			{regexp.MustCompile(`\/\/`), skipHandler},
+			{regexp.MustCompile(`"[^"]*"`), stringHandler},
 			{regexp.MustCompile(`\[`), defaultHandler(OPEN_BRACKET, "[")},
 			{regexp.MustCompile(`\]`), defaultHandler(CLOSE_BRACKET, "]")},
 			{regexp.MustCompile(`\(`), defaultHandler(OPEN_PAREN, "(")},
@@ -86,7 +90,7 @@ func CreateLexer(source string) *lexer {
 			{regexp.MustCompile(`-`), defaultHandler(MINUS, "-")},
 			{regexp.MustCompile(`\*`), defaultHandler(STAR, "*")},
 			{regexp.MustCompile(`\/`), defaultHandler(SLASH, "/")},
-			// {regexp.MustCompile(`\[`), defaultHandler(OPEN_BRACKET, "[")},
+			{regexp.MustCompile(`=`), defaultHandler(EQUAL, "=")},
 			// {regexp.MustCompile(`\[`), defaultHandler(OPEN_BRACKET, "[")},
 			// {regexp.MustCompile(`\[`), defaultHandler(OPEN_BRACKET, "[")},
 			// {regexp.MustCompile(`\[`), defaultHandler(OPEN_BRACKET, "[")},
@@ -107,5 +111,27 @@ func CreateLexer(source string) *lexer {
 func numberHandler(lex *lexer, regex *regexp.Regexp) {
 	match := regex.FindString(lex.remainder())
 	lex.push(NewToken(NUMBER, match))
+	lex.advanceN(len(match))
+}
+
+func stringHandler(lex *lexer, regex *regexp.Regexp) {
+	match := regex.FindStringIndex(lex.remainder())
+	stringLiteral := lex.remainder()[match[0]:match[1]]
+	lex.push(NewToken(STRING, stringLiteral))
+	lex.advanceN(len(stringLiteral))
+}
+
+func skipHandler(lex *lexer, regex *regexp.Regexp) {
+	match := regex.FindStringIndex(lex.remainder())
+	lex.advanceN(match[1])
+}
+
+func symbolHandler(lex *lexer, regex *regexp.Regexp) {
+	match := regex.FindString(lex.remainder())
+	if kind, exist := keywords[match]; exist {
+		lex.push(NewToken(kind, match))
+	} else {
+		lex.push(NewToken(IDENTIFIER, match))
+	}
 	lex.advanceN(len(match))
 }
